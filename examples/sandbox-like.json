@@ -1,0 +1,98 @@
+{
+  "_comment": [
+    "Best guess at a Windows Sandbox-like config with RDP + GPU-PV.",
+    "This combines Enhanced Session Mode, GPU passthrough, and networking.",
+    "The real Sandbox also does: dynamic base VHDX layering, mapped folders (Plan9),",
+    "auto-logon, and clipboard via GuestInterface. We skip those for now.",
+    "",
+    "After running: hcstool dump <sandbox-vm-id> on a real Sandbox,",
+    "compare and adjust these fields."
+  ],
+  "Owner": "hcstool",
+  "SchemaVersion": {
+    "Major": 2,
+    "Minor": 1
+  },
+  "ShouldTerminateOnLastHandleClosed": false,
+  "VirtualMachine": {
+    "StopOnReset": true,
+    "Chipset": {
+      "Uefi": {
+        "BootThis": {
+          "DevicePath": "Primary",
+          "DeviceType": "ScsiDrive",
+          "DiskNumber": 0
+        }
+      },
+      "LinuxKernelDirect": null
+    },
+    "ComputeTopology": {
+      "Memory": {
+        "SizeInMB": 4096,
+        "AllowOvercommit": true,
+        "EnableDeferredCommit": true,
+        "EnableHotHint": true
+      },
+      "Processor": {
+        "Count": 4
+      }
+    },
+    "Devices": {
+      "Scsi": {
+        "Primary": {
+          "Attachments": {
+            "0": {
+              "Type": "VirtualDisk",
+              "Path": "C:\\path\\to\\sandbox-boot.vhdx"
+            }
+          }
+        }
+      },
+
+      "NetworkAdapters": {
+        "nat": {
+          "EndpointId": "00000000-0000-0000-0000-000000000000",
+          "MacAddress": "00-15-5D-00-00-01"
+        }
+      },
+
+      "EnhancedModeVideo": {
+        "ConnectionOptions": {
+          "AccessSids": ["S-1-1-0"],
+          "NamedPipe": ""
+        }
+      },
+
+      "VideoMonitor": {
+        "HorizontalResolution": 1920,
+        "VerticalResolution": 1080
+      },
+
+      "Keyboard": {},
+      "Mouse": {},
+
+      "HvSocket": {
+        "_comment": "[?] Hyper-V socket — Sandbox may use this for host-guest IPC.",
+        "HvSocketConfig": {
+          "DefaultBindSecurityDescriptor": "D:P(A;;FA;;;SY)(A;;FA;;;BA)",
+          "DefaultConnectSecurityDescriptor": "D:P(A;;FA;;;SY)(A;;FA;;;BA)"
+        }
+      },
+
+      "VirtualPci": {
+        "_comment": "GPU-PV — use --gpu flag or replace DeviceInstancePath with your GPU.",
+        "gpu-0": {
+          "DeviceInstancePath": "PCI\\VEN_10DE&DEV_2684&SUBSYS_00000000&REV_A1\\0000",
+          "VirtualFunction": 65535
+        }
+      },
+
+      "VirtualSmb": {
+        "_comment": "[?] Sandbox uses this for mapped host folders. Omit if not needed.",
+        "Shares": []
+      },
+
+      "GuestInterface": {}
+    }
+  }
+}

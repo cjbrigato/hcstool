@@ -1,0 +1,74 @@
+{
+  "_comment": [
+    "Network-based RDP — connect with mstsc.exe to the VM's IP address.",
+    "Requires: (1) HNS network + endpoint created BEFORE VM creation,",
+    "          (2) guest OS has RDP enabled + firewall allows port 3389.",
+    "",
+    "Create HNS network first (PowerShell as admin):",
+    "  $net = New-HnsNetwork -Type NAT -Name 'hcstool-nat' -AddressPrefix '172.20.0.0/24' -GatewayAddress '172.20.0.1'",
+    "  $ep = New-HnsEndpoint -NetworkId $net.Id -IPAddress '172.20.0.2'",
+    "Then put $ep.Id into the EndpointId field below.",
+    "",
+    "Alternative: use an existing 'Default Switch' or external vswitch.",
+    "GUESSES marked with [?] — iterate after testing."
+  ],
+  "Owner": "hcstool",
+  "SchemaVersion": {
+    "Major": 2,
+    "Minor": 1
+  },
+  "ShouldTerminateOnLastHandleClosed": false,
+  "VirtualMachine": {
+    "StopOnReset": true,
+    "Chipset": {
+      "Uefi": {
+        "BootThis": {
+          "DevicePath": "Primary",
+          "DeviceType": "ScsiDrive",
+          "DiskNumber": 0
+        }
+      }
+    },
+    "ComputeTopology": {
+      "Memory": {
+        "SizeInMB": 4096,
+        "AllowOvercommit": true
+      },
+      "Processor": {
+        "Count": 4
+      }
+    },
+    "Devices": {
+      "Scsi": {
+        "Primary": {
+          "Attachments": {
+            "0": {
+              "Type": "VirtualDisk",
+              "Path": "C:\\path\\to\\boot.vhdx"
+            }
+          }
+        }
+      },
+
+      "NetworkAdapters": {
+        "_comment": "[?] Key is arbitrary name. EndpointId must be a pre-created HNS endpoint GUID.",
+        "eth0": {
+          "EndpointId": "00000000-0000-0000-0000-000000000000",
+          "MacAddress": "00-15-5D-00-00-01"
+        }
+      },
+
+      "Keyboard": {},
+      "Mouse": {},
+
+      "EnhancedModeVideo": {
+        "_comment": "[?] Including this too — gives both vmconnect AND mstsc as options."
+      },
+
+      "VideoMonitor": {
+        "HorizontalResolution": 1920,
+        "VerticalResolution": 1080
+      }
+    }
+  }
+}
