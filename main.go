@@ -16,13 +16,15 @@ Usage:
   hcstool create --vhdx boot.vhdx [--memory 2048] [--cpus 2] [--gpu] [--name myvm]
   hcstool list
   hcstool inspect <vm-id>
+  hcstool dump <vm-id>
   hcstool stop <vm-id> [--timeout 30]
   hcstool kill <vm-id>
 
 Commands:
   create    Create and start a VM from a JSON spec or VHDX file
   list      List all HCS compute systems
-  inspect   Show properties of a compute system
+  inspect   Show basic properties of a compute system
+  dump      Dump all available properties (memory, devices, stats, etc.)
   stop      Gracefully shut down a compute system
   kill      Forcibly terminate a compute system
 `)
@@ -49,6 +51,8 @@ func main() {
 		cmdList()
 	case "inspect":
 		cmdInspect(os.Args[2:])
+	case "dump":
+		cmdDump(os.Args[2:])
 	case "stop":
 		cmdStop(os.Args[2:])
 	case "kill":
@@ -127,6 +131,17 @@ func cmdInspect(args []string) {
 		os.Exit(1)
 	}
 	if err := InspectVM(args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func cmdDump(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: hcstool dump <vm-id>")
+		os.Exit(1)
+	}
+	if err := DumpVM(args[0]); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

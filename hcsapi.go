@@ -237,19 +237,34 @@ func enumerateComputeSystems() (string, error) {
 	return waitForResult(op, infinite)
 }
 
-// getComputeSystemProperties retrieves properties of a compute system.
+// getComputeSystemProperties retrieves properties of a compute system (NULL query).
 func getComputeSystemProperties(sys HcsSystem) (string, error) {
+	return getComputeSystemPropertiesQuery(sys, "")
+}
+
+// getComputeSystemPropertiesQuery retrieves properties using a PropertyQuery JSON.
+// Pass empty string for queryJSON to use NULL (basic properties only).
+func getComputeSystemPropertiesQuery(sys HcsSystem, queryJSON string) (string, error) {
 	op, err := createOperation()
 	if err != nil {
 		return "", err
 	}
 	defer closeOperation(op)
 
+	var queryArg uintptr
+	if queryJSON != "" {
+		qPtr, err := windows.UTF16PtrFromString(queryJSON)
+		if err != nil {
+			return "", fmt.Errorf("invalid query JSON: %w", err)
+		}
+		queryArg = uintptr(unsafe.Pointer(qPtr))
+	}
+
 	// HcsGetComputeSystemProperties(computeSystem, operation, propertyQuery)
 	hr, _, _ := procHcsGetComputeSystemProperties.Call(
 		uintptr(sys),
 		uintptr(op),
-		0, // NULL query = all properties
+		queryArg,
 	)
 	if !hrOK(hr) {
 		return "", &HcsError{Op: "HcsGetComputeSystemProperties", HR: uint32(hr)}

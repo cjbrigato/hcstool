@@ -344,6 +344,106 @@ func InspectVM(id string) error {
 	return nil
 }
 
+// allPropertyTypes lists every known HCS PropertyType for maximum extraction.
+var allPropertyTypes = []string{
+	"Memory",
+	"GuestMemory",
+	"Statistics",
+	"ProcessList",
+	"TerminateOnLastHandleClosed",
+	"SharedMemoryRegion",
+	"GuestConnection",
+	"ICHeartbeatStatus",
+	"ProcessorTopology",
+	"CpuGroup",
+	"SystemGUID",
+}
+
+// DumpVM queries a compute system with all known property types and outputs
+// the combined result as pretty JSON. If the all-at-once query fails, it
+// falls back to querying each property type individually and merging results.
+func DumpVM(id string) error {
+	sys, err := openComputeSystem(id)
+	if err != nil {
+		return err
+	}
+	defer closeComputeSystem(sys)
+
+	// Try querying all property types at once
+	queryJSON := buildPropertyQuery(allPropertyTypes)
+	result, err := getComputeSystemPropertiesQuery(sys, queryJSON)
+	if err == nil && result != "" {
+		prettyPrint(result)
+		return nil
+	}
+
+	// Fallback: query each type individually and merge
+	fmt.Fprintf(os.Stderr, "Bulk query failed (%v), querying properties individually...\n", err)
+
+	merged := make(map[string]json.RawMessage)
+
+	// First get the base properties (NULL query)
+	baseJSON, err := getComputeSystemProperties(sys)
+	if err != nil {
+		return fmt.Errorf("base property query failed: %w", err)
+	}
+	if err := json.Unmarshal([]byte(baseJSON), &merged); err != nil {
+		return fmt.Errorf("failed to parse base properties: %w", err)
+	}
+
+	// Then query each property type individually
+	for _, pt := range allPropertyTypes {
+		queryJSON := buildPropertyQuery([]string{pt})
+		result, err := getComputeSystemPropertiesQuery(sys, queryJSON)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %-30s  skipped (%v)\n", pt, err)
+			continue
+		}
+		// Merge the result fields into our combined map
+		var partial map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(result), &partial); err != nil {
+			fmt.Fprintf(os.Stderr, "  %-30s  skipped (bad JSON)\n", pt)
+			continue
+		}
+		for k, v := range partial {
+			merged[k] = v
+		}
+		fmt.Fprintf(os.Stderr, "  %-30s  ok\n", pt)
+	}
+
+	// Pretty-print the merged result
+	out, err := json.MarshalIndent(merged, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize merged properties: %w", err)
+	}
+	fmt.Println(string(out))
+	return nil
+}
+
+// buildPropertyQuery constructs a PropertyQuery JSON document.
+func buildPropertyQuery(types []string) string {
+	q := struct {
+		PropertyTypes []string `json:"PropertyTypes"`
+	}{PropertyTypes: types}
+	data, _ := json.Marshal(q)
+	return string(data)
+}
+
+// prettyPrint outputs a JSON string with indentation.
+func prettyPrint(jsonStr string) {
+	var raw json.RawMessage
+	if err := json.Unmarshal([]byte(jsonStr), &raw); err != nil {
+		fmt.Println(jsonStr)
+		return
+	}
+	pretty, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		fmt.Println(jsonStr)
+		return
+	}
+	fmt.Println(string(pretty))
+}
+
 // StopVM performs a graceful shutdown of a compute system.
 func StopVM(id string, timeoutMs uint32) error {
 	sys, err := openComputeSystem(id)
